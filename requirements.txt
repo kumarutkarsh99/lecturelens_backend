@@ -1,0 +1,11 @@
+Flask
+Flask-Cors
+Flask-SQLAlchemy
+psycopg2-binary
+gunicorn
+pytesseract
+pillow
+pdf2image
+python-dotenv
+nltk
+sumy
