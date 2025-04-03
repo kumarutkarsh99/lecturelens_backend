@@ -26,11 +26,17 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///notes.db')
+# Database Configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL is not set! Make sure it's in your Railway environment variables.")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Allowed File Extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 
 def allowed_file(filename):
@@ -39,18 +45,12 @@ def allowed_file(filename):
 def summarize_text(text, sentence_count=3):
     parser = PlaintextParser.from_string(text, Tokenizer("english"))
     summarizer = LsaSummarizer()
-    summary = " ".join([str(sentence) for sentence in summarizer(parser.document, sentence_count)])
-    return summary
+    return " ".join(str(sentence) for sentence in summarizer(parser.document, sentence_count))
 
 def extract_keywords(text, num_keywords=5):
     words = nltk.word_tokenize(text.lower())
-    filtered_words = [
-        word for word in words
-        if word.isalnum() and word not in stopwords.words('english')
-    ]
-    common = Counter(filtered_words).most_common(num_keywords)
-    keywords = [word for word, count in common]
-    return keywords
+    filtered_words = [word for word in words if word.isalnum() and word not in stopwords.words('english')]
+    return [word for word, _ in Counter(filtered_words).most_common(num_keywords)]
 
 class Note(db.Model):
     __tablename__ = 'notes'
@@ -62,15 +62,17 @@ class Note(db.Model):
     keywords = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# Ensure database tables exist
 with app.app_context():
     db.create_all()
 
+# File Upload Configuration
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
-pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD', 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe')
-POPPLER_PATH = os.getenv('POPPLER_PATH')
-if not POPPLER_PATH:
-    raise ValueError("POPPLER_PATH is not set in environment variables.")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Configure Tesseract & Poppler
+pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
+POPPLER_PATH = os.getenv('POPPLER_PATH', '')
 
 @app.route('/upload', methods=['POST'])
 def upload_note():
@@ -89,10 +91,10 @@ def upload_note():
         
         text_content = ""
         file_ext = os.path.splitext(unique_filename)[1].lower()
-        
+
         try:
             if file_ext == ".pdf":
-                pages = convert_from_path(file_path, poppler_path=POPPLER_PATH)
+                pages = convert_from_path(file_path, poppler_path=POPPLER_PATH if POPPLER_PATH else None)
                 text_content = "\n".join([pytesseract.image_to_string(page) for page in pages])
             else:
                 text_content = pytesseract.image_to_string(Image.open(file_path))
@@ -101,9 +103,7 @@ def upload_note():
         
         summary = summarize_text(text_content)
         keywords = extract_keywords(text_content)
-        tags = request.form.get('tags', '')
-        if not tags:
-            tags = ", ".join(keywords)
+        tags = request.form.get('tags', ", ".join(keywords))
         
         try:
             note = Note(
@@ -134,27 +134,7 @@ def upload_note():
 @app.route('/search', methods=['GET'])
 def search_notes():
     query = request.args.get('q', '')
-    tag_filter = request.args.get('tag', '')
-    start_date = request.args.get('start_date', '')
-    end_date = request.args.get('end_date', '')
-    filters = []
-    
-    if query:
-        filters.append(Note.text_content.ilike(f'%{query}%'))
-    if tag_filter:
-        filters.append(Note.tags.ilike(f'%{tag_filter}%'))
-    if start_date:
-        try:
-            start = datetime.strptime(start_date, '%Y-%m-%d')
-            filters.append(Note.created_at >= start)
-        except Exception:
-            return jsonify({'error': 'Invalid start_date format. Use YYYY-MM-DD'}), 400
-    if end_date:
-        try:
-            end = datetime.strptime(end_date, '%Y-%m-%d')
-            filters.append(Note.created_at <= end)
-        except Exception:
-            return jsonify({'error': 'Invalid end_date format. Use YYYY-MM-DD'}), 400
+    filters = [Note.text_content.ilike(f'%{query}%')] if query else []
 
     results = Note.query.filter(*filters).all() if filters else Note.query.all()
     notes_data = [{
@@ -174,8 +154,7 @@ def search_notes():
 def serve_file(filename):
     if not allowed_file(filename):
         return jsonify({'error': 'Access denied'}), 403
-    safe_filename = secure_filename(filename)
-    return send_from_directory(UPLOAD_FOLDER, safe_filename)
+    return send_from_directory(UPLOAD_FOLDER, secure_filename(filename))
 
 @app.route('/delete/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):
@@ -201,4 +180,4 @@ def home():
     return "LectureLens Flask Server is running!"
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(port=5000)
