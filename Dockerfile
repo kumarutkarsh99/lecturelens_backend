@@ -27,5 +27,5 @@ ENV POPPLER_PATH="/usr/bin"
 # Expose the port (default, Railway will set PORT dynamically)
 EXPOSE 8080
 
-# Use Gunicorn to run the Flask app with dynamic port binding
-CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "app:app"]
+# Use Gunicorn to run the Flask app with dynamic port binding (shell form for env var substitution)
+CMD gunicorn -b 0.0.0.0:${PORT:-8080} app:app
