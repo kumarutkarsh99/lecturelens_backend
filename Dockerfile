@@ -24,8 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV TESSERACT_CMD="/usr/bin/tesseract"
 ENV POPPLER_PATH="/usr/bin"
 
-# Expose the port dynamically (not hardcoded)
-EXPOSE 5000
+# Expose the port (default, Railway will set PORT dynamically)
+EXPOSE 8080
 
-# Use Gunicorn to run Flask app properly
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
+# Use Gunicorn to run the Flask app with dynamic port binding
+CMD ["gunicorn", "-b", "0.0.0.0:$PORT", "app:app"]
