@@ -20,12 +20,13 @@ COPY . .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download required NLTK data
+# 🔹 Fix: Download required NLTK data (including punkt_tab)
 RUN python -c "import nltk; \
     nltk.download('punkt'); \
+    nltk.download('punkt_tab'); \
     nltk.download('stopwords'); \
     nltk.download('averaged_perceptron_tagger'); \
-    nltk.download('wordnet')"
+    nltk.download('wordnet');"
 
 # Set Tesseract and Poppler paths
 ENV TESSERACT_CMD="/usr/bin/tesseract"
