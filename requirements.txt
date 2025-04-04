@@ -9,3 +9,4 @@ sumy
 nltk
 psycopg2-binary
 gunicorn
+numpy
