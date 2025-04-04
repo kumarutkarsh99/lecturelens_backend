@@ -32,7 +32,7 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL is not set! Make sure it's in your Railway environment variables.")
 
-# If using postgres://, replace with postgresql:// (required by SQLAlchemy)
+# Replace postgres:// with postgresql:// if necessary
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -78,7 +78,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configure Tesseract & Poppler
 pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
-# If POPPLER_PATH is not set, use None
+# Use None if POPPLER_PATH is not set, so convert_from_path uses defaults
 POPPLER_PATH = os.getenv('POPPLER_PATH') or None
 
 @app.route('/upload', methods=['POST'])
