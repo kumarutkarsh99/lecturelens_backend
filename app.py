@@ -187,5 +187,5 @@ def home():
     return "LectureLens Flask Server is running!"
 
 if __name__ == "__main__":
-    PORT = int(os.getenv("PORT", 5000))
+    PORT = int(os.getenv("PORT", 8080))
     app.run(host="0.0.0.0", port=PORT)
