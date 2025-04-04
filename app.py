@@ -18,6 +18,7 @@ import nltk
 from nltk.corpus import stopwords
 from collections import Counter
 
+# Download required NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -30,6 +31,10 @@ CORS(app)
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL is not set! Make sure it's in your Railway environment variables.")
+
+# If using postgres://, replace with postgresql:// (required by SQLAlchemy)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -68,11 +73,13 @@ with app.app_context():
 
 # File Upload Configuration
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Configure Tesseract & Poppler
 pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
-POPPLER_PATH = os.getenv('POPPLER_PATH', '')
+# If POPPLER_PATH is not set, use None
+POPPLER_PATH = os.getenv('POPPLER_PATH') or None
 
 @app.route('/upload', methods=['POST'])
 def upload_note():
@@ -86,7 +93,7 @@ def upload_note():
         
         original_filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4().hex}_{original_filename}"
-        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         file.save(file_path)
         
         text_content = ""
@@ -94,7 +101,7 @@ def upload_note():
 
         try:
             if file_ext == ".pdf":
-                pages = convert_from_path(file_path, poppler_path=POPPLER_PATH if POPPLER_PATH else None)
+                pages = convert_from_path(file_path, poppler_path=POPPLER_PATH)
                 text_content = "\n".join([pytesseract.image_to_string(page) for page in pages])
             else:
                 text_content = pytesseract.image_to_string(Image.open(file_path))
@@ -135,8 +142,8 @@ def upload_note():
 def search_notes():
     query = request.args.get('q', '')
     filters = [Note.text_content.ilike(f'%{query}%')] if query else []
-
     results = Note.query.filter(*filters).all() if filters else Note.query.all()
+    
     notes_data = [{
         'id': note.id,
         'file_name': note.file_name,
@@ -154,7 +161,7 @@ def search_notes():
 def serve_file(filename):
     if not allowed_file(filename):
         return jsonify({'error': 'Access denied'}), 403
-    return send_from_directory(UPLOAD_FOLDER, secure_filename(filename))
+    return send_from_directory(app.config['UPLOAD_FOLDER'], secure_filename(filename))
 
 @app.route('/delete/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):
@@ -163,7 +170,7 @@ def delete_note(note_id):
         if not note:
             return jsonify({'error': 'Note not found'}), 404
         
-        file_path = os.path.join(UPLOAD_FOLDER, note.file_name)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], note.file_name)
         if os.path.exists(file_path):
             os.remove(file_path)
 
@@ -180,6 +187,5 @@ def home():
     return "LectureLens Flask Server is running!"
 
 if __name__ == "__main__":
-    PORT = int(os.getenv("PORT", 5000))  
+    PORT = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=PORT)
-
