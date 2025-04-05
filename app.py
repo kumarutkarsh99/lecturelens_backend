@@ -18,7 +18,6 @@ import nltk
 from nltk.corpus import stopwords
 from collections import Counter
 
-# Download required NLTK data
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -27,12 +26,10 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Database Configuration
 DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL is not set! Make sure it's in your Railway environment variables.")
 
-# Replace postgres:// with postgresql:// if necessary
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -41,7 +38,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Allowed File Extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 
 def allowed_file(filename):
@@ -67,18 +63,15 @@ class Note(db.Model):
     keywords = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Ensure database tables exist
 with app.app_context():
     db.create_all()
 
-# File Upload Configuration
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Configure Tesseract & Poppler
 pytesseract.pytesseract.tesseract_cmd = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
-# Use None if POPPLER_PATH is not set, so convert_from_path uses defaults
+
 POPPLER_PATH = os.getenv('POPPLER_PATH') or None
 
 @app.route('/upload', methods=['POST'])
